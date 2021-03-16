@@ -1,7 +1,9 @@
 import torch
 
 from torch import nn
+from torch.optim import Adam
 from torch.nn import functional as F
+import pytorch_lightning as pl
 
 
 class SelfAttention(nn.Module):
@@ -123,7 +125,7 @@ class Encoder(nn.Module):
         batch_size, reg_vars, seq_length = X.shape
         positions = torch.arange(0, reg_vars*seq_length).expand(
             batch_size, seq_length*reg_vars).to(self.device)
-        X = X.view(batch_size, reg_vars*seq_length)
+        X = X.view(batch_size, 1, reg_vars*seq_length)
         series_embedded = self.series_embedding(X)
         pos_embedded = self.positional_embedding(positions)
         embed = series_embedded + pos_embedded
@@ -176,13 +178,14 @@ class Decoder(nn.Module):
             ]
         )
 
-        self.fc_out = nn.Linear(embed_size, horizons)
+        self.fc_out = nn.Linear(embed_size, 1)
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, X, encoder_out, target_mask=None, src_mask=None):
         batch_size, horizons = X.shape
         positions = torch.arange(0, horizons).expand(
             batch_size, horizons).to(self.device)
+        X = X.view(batch_size, 1, horizons)
         series_embedded = self.series_embedding(X)
         pos_embedded = self.positional_embedding(positions)
         out = series_embedded + pos_embedded
@@ -191,10 +194,12 @@ class Decoder(nn.Module):
             out = layer(out, encoder_out, encoder_out,
                         target_mask, src_mask)
 
-        return self.fc_out(out)
+        out = self.fc_out(out)
+        out = out.view(batch_size, self.horizons)
+        return out
 
 
-class Transformer(nn.Module):
+class Transformer(pl.LightningModule):
 
     def __init__(self, input_size, horizons=12,
                  embed_size=512, num_layers=1,
@@ -214,23 +219,42 @@ class Transformer(nn.Module):
                                dropout=dropout, horizons=horizons,
                                device=device, num_layers=num_layers)
 
-        self.device = device
-
     def forward(self, src, tgt):
         encoded = self.encoder(src)
         decoded = self.decoder(tgt, encoded)
         return decoded
+
+    def training_step(self, batch, batch_idx):
+        X, y = batch
+        y_hat = self(X, y)
+        loss = F.mse_loss(y_hat, y)
+        self.log('train_loss', loss, on_step=True,
+                 on_epoch=True, prog_bar=True, logger=True)
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        X, y = batch
+        y_hat = self(X, y)
+        loss = F.mse_loss(y_hat, y)
+        self.log('validation_loss', loss, on_step=True,
+                 on_epoch=True, prog_bar=True, logger=True)
+        return loss
+
+    def configure_optimizers(self):
+        return Adam(self.parameters(), lr=0.02)
 
 
 if __name__ == "__main__":
     device = torch.device("cpu")
     print(device)
 
-    X = torch.tensor([[[1, 2, 3], [2, 3, 4], [3, 4, 5]]]).float().to(device)
-    y = torch.tensor([[4, 5]]).float().to(device)
+    X = torch.ones((64, 3, 3)).float().to(device)
+    print(X.size())
+    y = torch.ones((64, 2)).float().to(device)
+    print(y.size())
 
     model = Transformer(input_size=3*3, horizons=2, device=device).to(
         device
     )
     out = model(X, y)
-    print(out)
+    print(out.size())
