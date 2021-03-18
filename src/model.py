@@ -110,7 +110,6 @@ class Encoder(nn.Module):
         self.device = device
 
         self.series_embedding = nn.Linear(input_size, embed_size)
-        self.positional_embedding = nn.Embedding(input_size, embed_size)
 
         self.layers = nn.ModuleList(
             [
@@ -119,16 +118,15 @@ class Encoder(nn.Module):
                 for _ in range(num_layers)
             ]
         )
+        self.flatten = nn.Flatten()
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, X, mask=None):
         batch_size, reg_vars, seq_length = X.shape
-        positions = torch.arange(0, reg_vars*seq_length).expand(
-            batch_size, seq_length*reg_vars).to(self.device)
         X = X.view(batch_size, 1, reg_vars*seq_length)
         series_embedded = self.series_embedding(X)
-        pos_embedded = self.positional_embedding(positions)
-        embed = series_embedded + pos_embedded
+        embed = series_embedded
+
         droped_out = self.dropout(embed)
         for layer in self.layers:
             out = layer(droped_out, droped_out, droped_out, mask)
@@ -169,7 +167,6 @@ class Decoder(nn.Module):
         self.device = device
 
         self.series_embedding = nn.Linear(horizons, embed_size)
-        self.positional_embedding = nn.Embedding(horizons, embed_size)
         self.layers = nn.ModuleList(
             [
                 DecoderBlock(embed_size, num_heads,
@@ -177,29 +174,25 @@ class Decoder(nn.Module):
                 for _ in range(num_layers)
             ]
         )
-
-        self.fc_out = nn.Linear(embed_size, 1)
+        self.fc_out = nn.Linear(embed_size, horizons)
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, X, encoder_out, target_mask=None, src_mask=None):
         batch_size, horizons = X.shape
-        positions = torch.arange(0, horizons).expand(
-            batch_size, horizons).to(self.device)
         X = X.view(batch_size, 1, horizons)
         series_embedded = self.series_embedding(X)
-        pos_embedded = self.positional_embedding(positions)
-        out = series_embedded + pos_embedded
+        out = series_embedded
         out = self.dropout(out)
         for layer in self.layers:
             out = layer(out, encoder_out, encoder_out,
                         target_mask, src_mask)
 
         out = self.fc_out(out)
-        out = out.view(batch_size, self.horizons)
+        out = out.squeeze()
         return out
 
 
-class Transformer(pl.LightningModule):
+class AutoEncoder(pl.LightningModule):
 
     def __init__(self, input_size, horizons=12,
                  embed_size=512, num_layers=1,
@@ -211,13 +204,13 @@ class Transformer(pl.LightningModule):
                                num_heads=num_heads,
                                forward_expansion=forward_expansion,
                                dropout=dropout, device=device,
-                               num_layers=num_layers)
+                               num_layers=num_layers).to(device)
 
         self.decoder = Decoder(embed_size=embed_size,
                                num_heads=num_heads,
                                forward_expansion=forward_expansion,
                                dropout=dropout, horizons=horizons,
-                               device=device, num_layers=num_layers)
+                               device=device, num_layers=num_layers).to(device)
 
     def forward(self, src, tgt):
         encoded = self.encoder(src)
@@ -244,17 +237,64 @@ class Transformer(pl.LightningModule):
         return Adam(self.parameters(), lr=0.02)
 
 
+class FinalModule(pl.LightningModule):
+
+    def __init__(self, input_size, horizons=12,
+                 embed_size=512, num_layers=1,
+                 forward_expansion=1, num_heads=8,
+                 dropout=0.0, device=torch.device('cpu')):
+        super().__init__()
+        self.encoder = Encoder(input_size=input_size,
+                               embed_size=embed_size,
+                               num_heads=num_heads,
+                               forward_expansion=forward_expansion,
+                               dropout=dropout, device=device,
+                               num_layers=num_layers).to(device)
+
+        self.fc_out = nn.Linear(embed_size, horizons)
+
+    def load_encoder(self, encoder):
+        self.encoder.load_state_dict(encoder.state_dict())
+        for param in self.encoder.parameters():
+            param.requires_grad = False
+
+    def forward(self, src):
+        encoded = self.encoder(src)
+        out = self.fc_out(encoded)
+        return out.squeeze()
+
+    def training_step(self, batch, batch_idx):
+        X, y = batch
+        y_hat = self(X)
+        loss = F.mse_loss(y_hat, y)
+        self.log('train_loss', loss, on_step=True,
+                 on_epoch=True, prog_bar=True, logger=True)
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        X, y = batch
+        y_hat = self(X)
+        loss = F.mse_loss(y_hat, y)
+        self.log('validation_loss', loss, on_step=True,
+                 on_epoch=True, prog_bar=True, logger=True)
+        return loss
+
+    def configure_optimizers(self):
+        return Adam(self.parameters(), lr=0.02)
+
+
 if __name__ == "__main__":
     device = torch.device("cpu")
     print(device)
 
-    X = torch.ones((64, 3, 3)).float().to(device)
-    print(X.size())
-    y = torch.ones((64, 2)).float().to(device)
-    print(y.size())
+    reg_vars = 320
+    components = 3
+    horizons=2
+    X = torch.ones((64, reg_vars, components)).float().to(device)
+    y = torch.ones((64, horizons)).float().to(device)
 
-    model = Transformer(input_size=3*3, horizons=2, device=device).to(
-        device
-    )
+    model = AutoEncoder(input_size=reg_vars*components,
+                        horizons=horizons, device=device).to(device)
+    print(model)
     out = model(X, y)
     print(out.size())
