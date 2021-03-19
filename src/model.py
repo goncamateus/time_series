@@ -123,7 +123,8 @@ class Encoder(nn.Module):
 
     def forward(self, X, mask=None):
         batch_size, reg_vars, seq_length = X.shape
-        X = X.view(batch_size, 1, reg_vars*seq_length)
+
+        X = X.view(batch_size, 1, reg_vars*seq_length).float()
         series_embedded = self.series_embedding(X)
         embed = series_embedded
 
@@ -280,7 +281,44 @@ class FinalModule(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        return Adam(self.parameters(), lr=0.02)
+        return Adam(self.parameters(), lr=0.001)
+
+
+class MLP(pl.LightningModule):
+
+    def __init__(self, input_size, horizons=12):
+        super().__init__()
+        self.layers = nn.Sequential(
+            nn.Linear(input_size, 3),
+            nn.ReLU(),
+            nn.Linear(3, 6),
+            nn.ReLU(),
+            nn.Linear(6, horizons),
+        )
+
+    def forward(self, src):
+        batch_size, reg_vars, seq_length = src.shape
+        X = src.view(batch_size, 1, reg_vars*seq_length).float()
+        return self.layers(X).squeeze()
+
+    def training_step(self, batch, batch_idx):
+        X, y = batch
+        y_hat = self(X)
+        loss = F.mse_loss(y_hat, y)
+        self.log('train_loss', loss, on_step=True,
+                 on_epoch=True, prog_bar=True, logger=True)
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        X, y = batch
+        y_hat = self(X)
+        loss = F.mse_loss(y_hat, y)
+        self.log('validation_loss', loss, on_step=True,
+                 on_epoch=True, prog_bar=True, logger=True)
+        return loss
+
+    def configure_optimizers(self):
+        return Adam(self.parameters(), lr=0.001)
 
 
 if __name__ == "__main__":
@@ -289,7 +327,7 @@ if __name__ == "__main__":
 
     reg_vars = 320
     components = 3
-    horizons=2
+    horizons = 2
     X = torch.ones((64, reg_vars, components)).float().to(device)
     y = torch.ones((64, horizons)).float().to(device)
 
