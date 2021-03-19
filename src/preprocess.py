@@ -27,11 +27,11 @@ def get_sub_comps(main_components: np.ndarray):
 def get_comps_test(serie: np.ndarray, periods: list, sub_periods: list):
     print('Getting test components')
     main_components = decomp(serie, periods)
-    sub_comps = list()
-    for i, comp in enumerate(main_components.transpose()):
-        sub = decomp(comp, sub_periods[i])
-        sub_comps.append(sub)
-    return sub_comps
+    # sub_comps = list()
+    # for i, comp in enumerate(main_components.transpose()):
+    #     sub = decomp(comp, sub_periods[i])
+    #     sub_comps.append(sub)
+    return main_components
 
 
 def save_comps(train_comps: np.ndarray,
@@ -56,10 +56,10 @@ def load_sub_comps(central: str):
 def set_data(serie: np.ndarray, sub_comps: list,
              reg_vars=60, horizons=12):
 
-    data = list()
-    for comps in sub_comps:
-        data += list(comps.T)
-    data = np.array(data).T
+    data = sub_comps
+    # for comps in sub_comps:
+    #     data += list(comps.T)
+    # data = np.array(data).T
 
     X = []
     y = list()
@@ -128,15 +128,15 @@ def prepare_data(serie: np.ndarray, dec: bool,
     if decomp_method == 'fft':
         if dec:
             main_components, periods = get_comps(train_data)
-            sub_comps = get_sub_comps(main_components)
-            sub_periods = [sub[1] for sub in sub_comps]
-            sub_comps = [sub[0] for sub in sub_comps]
+            # sub_comps = get_sub_comps(main_components)
+            # sub_periods = [sub[1] for sub in sub_comps]
+            # sub_comps = [sub[0] for sub in sub_comps]
             test_components = get_comps_test(
-                test_data, periods, sub_periods)
-            save_comps(sub_comps, test_components, central)
+                test_data, periods, periods)
+            save_comps(main_components, test_components, central)
         else:
-            sub_comps, test_components = load_sub_comps(central)
-        X_train, y_train = set_data(train_data, sub_comps,
+            main_components, test_components = load_sub_comps(central)
+        X_train, y_train = set_data(train_data, main_components,
                                     reg_vars=reg_vars, horizons=horizons)
         X_test, y_test = set_data(test_data, test_components,
                                   reg_vars=reg_vars,

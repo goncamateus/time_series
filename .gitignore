@@ -134,3 +134,4 @@ dmypy.json
 # Project stuff
 data/
 models/
+lightning_logs/
