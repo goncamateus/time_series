@@ -1,9 +1,31 @@
-import torch
+import math
 
-from torch import nn
-from torch.optim import Adam
-from torch.nn import functional as F
 import pytorch_lightning as pl
+import torch
+from torch import nn
+from torch.nn import functional as F
+from torch.optim import Adam
+
+
+class PositionalEncoding(nn.Module):
+
+    def __init__(self, d_model, dropout=0.1, max_len=5000):
+        super(PositionalEncoding, self).__init__()
+        self.dropout = nn.Dropout(p=dropout)
+
+        pe = torch.zeros(max_len, d_model)
+        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
+        pe[:, 0::2] = torch.sin(position * div_term)
+        if d_model%2 == 1:
+            div_term = div_term[:-1]
+        pe[:, 1::2] = torch.cos(position * div_term)
+        pe = pe.unsqueeze(0).transpose(0, 1)
+        self.register_buffer('pe', pe)
+
+    def forward(self, x):
+        x = x + self.pe[:x.size(0), :]
+        return self.dropout(x)
 
 
 class SelfAttention(nn.Module):
@@ -109,6 +131,7 @@ class Encoder(nn.Module):
         self.forward_expansion = forward_expansion
         self.device = device
 
+        # self.pos_embedding = PositionalEncoding(input_size, dropout=dropout)
         self.series_embedding = nn.Linear(input_size, embed_size)
 
         self.layers = nn.ModuleList(
@@ -125,6 +148,7 @@ class Encoder(nn.Module):
         batch_size, reg_vars, seq_length = X.shape
 
         X = X.view(batch_size, 1, reg_vars*seq_length).float()
+        # X = self.pos_embedding(X)
         series_embedded = self.series_embedding(X)
         embed = series_embedded
 
@@ -167,6 +191,7 @@ class Decoder(nn.Module):
         self.horizons = horizons
         self.device = device
 
+        self.pos_embedding = PositionalEncoding(horizons, dropout=dropout)
         self.series_embedding = nn.Linear(horizons, embed_size)
         self.layers = nn.ModuleList(
             [
@@ -181,6 +206,7 @@ class Decoder(nn.Module):
     def forward(self, X, encoder_out, target_mask=None, src_mask=None):
         batch_size, horizons = X.shape
         X = X.view(batch_size, 1, horizons)
+        X = self.pos_embedding(X)
         series_embedded = self.series_embedding(X)
         out = series_embedded
         out = self.dropout(out)
@@ -235,7 +261,7 @@ class AutoEncoder(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        return Adam(self.parameters(), lr=0.02)
+        return Adam(self.parameters(), lr=0.001)
 
 
 class FinalModule(pl.LightningModule):
@@ -258,6 +284,7 @@ class FinalModule(pl.LightningModule):
         self.encoder.load_state_dict(encoder.state_dict())
         for param in self.encoder.parameters():
             param.requires_grad = False
+        self.encoder.eval()
 
     def forward(self, src):
         encoded = self.encoder(src)
@@ -325,11 +352,12 @@ if __name__ == "__main__":
     device = torch.device("cpu")
     print(device)
 
-    reg_vars = 320
+    batch = 128
+    reg_vars = 3
     components = 3
-    horizons = 2
-    X = torch.ones((64, reg_vars, components)).float().to(device)
-    y = torch.ones((64, horizons)).float().to(device)
+    horizons = 12
+    X = torch.ones((batch, reg_vars, components)).float().to(device)
+    y = torch.ones((batch, horizons)).float().to(device)
 
     model = AutoEncoder(input_size=reg_vars*components,
                         horizons=horizons, device=device).to(device)

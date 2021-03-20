@@ -89,6 +89,7 @@ class GoncaDataset(torch.utils.data.Dataset):
         else:
             serie_nan = matfile['SCADA']['PotTotal']['bruta']['DADOS']['avg'].T
         rawdata = serie_nan[~np.isnan(serie_nan)]
+        rawdata = rawdata[:10000]
         X_train, y_train, X_test, y_test,\
             train_scaler, test_scaler = prepare_data(rawdata, decomp,
                                                      data_name, window,
