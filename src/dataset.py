@@ -85,11 +85,13 @@ class GoncaDataset(torch.utils.data.Dataset):
             matlab73 = True
             matfile = mat73.loadmat(file_path)
         if not matlab73:
-            serie_nan = np.array(matfile['P'], dtype=np.float32)
+            try:
+                serie_nan = np.array(matfile[data_name], dtype=np.float32)
+            except KeyError:
+                serie_nan = np.array(matfile['P'], dtype=np.float32)
         else:
             serie_nan = matfile['SCADA']['PotTotal']['bruta']['DADOS']['avg'].T
         rawdata = serie_nan[~np.isnan(serie_nan)]
-        rawdata = rawdata[:10000]
         X_train, y_train, X_test, y_test,\
             train_scaler, test_scaler = prepare_data(rawdata, decomp,
                                                      data_name, window,

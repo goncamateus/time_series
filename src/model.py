@@ -6,7 +6,7 @@ from torch import nn
 from torch.nn import functional as F
 from torch.optim import Adam
 
-
+# https://pytorch.org/tutorials/beginner/transformer_tutorial.html
 class PositionalEncoding(nn.Module):
 
     def __init__(self, d_model, dropout=0.1, max_len=5000):
@@ -316,11 +316,11 @@ class MLP(pl.LightningModule):
     def __init__(self, input_size, horizons=12):
         super().__init__()
         self.layers = nn.Sequential(
-            nn.Linear(input_size, 3),
+            nn.Linear(input_size, 256),
             nn.ReLU(),
-            nn.Linear(3, 6),
+            nn.Linear(256, 256),
             nn.ReLU(),
-            nn.Linear(6, horizons),
+            nn.Linear(256, horizons),
         )
 
     def forward(self, src):
