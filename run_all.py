@@ -22,8 +22,9 @@ seaborn.set()
 torch.manual_seed(32)
 np.random.seed(32)
 
-ds = ['GUNNING1', 'KIATAWF1', 'MERCER01', 'MUSSELR1',
-      'NBHWF1', 'STARHLWF', 'WATERLWF', 'YAMBUKWF']
+# ds = ['GUNNING1', 'KIATAWF1', 'MERCER01', 'MUSSELR1',
+#       'NBHWF1', 'STARHLWF', 'WATERLWF', 'YAMBUKWF']
+ds = ['nordic', 'traffic', 'lake', 'eletricity']
 MLP_MODEL = {DATASET: {key: list() for key in ['mse', 'rmse', 'mae']} for DATASET in ds}
 TAETS = {DATASET: {key: list() for key in ['mse', 'rmse', 'mae']} for DATASET in ds}
 MLP_PURE = {DATASET: {key: list() for key in ['mse', 'rmse', 'mae']} for DATASET in ds}
