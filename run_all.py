@@ -16,31 +16,34 @@ from torch.nn.functional import mse_loss as MSE
 from torch.utils.data import DataLoader
 
 from src.dataset import GoncaDataset
-from src.model import MLP, AutoEncoder, FinalModule
+from src.model import MLP, AutoEncoder, FinalModule, MLPLucas
 
 seaborn.set()
 torch.manual_seed(32)
 np.random.seed(32)
 
-# ds = ['GUNNING1', 'KIATAWF1', 'MERCER01', 'MUSSELR1',
-#       'NBHWF1', 'STARHLWF', 'WATERLWF', 'YAMBUKWF']
-ds = ['nordic', 'traffic', 'lake', 'eletricity']
-MLP_MODEL = {DATASET: {key: list() for key in ['mse', 'rmse', 'mae']} for DATASET in ds}
-TAETS = {DATASET: {key: list() for key in ['mse', 'rmse', 'mae']} for DATASET in ds}
-MLP_PURE = {DATASET: {key: list() for key in ['mse', 'rmse', 'mae']} for DATASET in ds}
-TAETS_PURE = {DATASET: {key: list() for key in ['mse', 'rmse', 'mae']} for DATASET in ds}
+ds = ['GUNNING1', 'KIATAWF1', 'MERCER01', 'MUSSELR1',
+     'NBHWF1', 'STARHLWF', 'WATERLWF', 'YAMBUKWF']
+# ds = ['nordic', 'traffic', 'lake', 'eletricity']
+MLP_MODEL = {DATASET: {key: list()
+                       for key in ['mse', 'rmse', 'mae']} for DATASET in ds}
+TAETS = {DATASET: {key: list()
+                   for key in ['mse', 'rmse', 'mae']} for DATASET in ds}
+MLP_PURE = {DATASET: {key: list()
+                      for key in ['mse', 'rmse', 'mae']} for DATASET in ds}
+TAETS_PURE = {DATASET: {key: list()
+                        for key in ['mse', 'rmse', 'mae']} for DATASET in ds}
 HORIZONS = 12
 WINDOW = 3
 FORWARD_EXPANSION = 1
 N_LAYERS = 1
 DROPOUT = 0.0
-DECOMP_METHOD = 'fft'
 DEVICE = torch.device('cuda')
 
 
 # %%
 for DATASET in ds:
-    print(f'-------> DATASET {DATASET}')
+    print(f'\n\n\n\n\n-------> DATASET {DATASET}')
     if not os.path.exists(f'data/components/{DATASET}'):
         os.system(f'mkdir data/components/{DATASET}')
     if not os.path.exists(f'data/out/{DATASET}'):
@@ -50,7 +53,7 @@ for DATASET in ds:
     dataset = GoncaDataset(window=WINDOW,
                            horizons=HORIZONS,
                            data_name=DATASET,
-                           decomp_method=DECOMP_METHOD,
+                           decomp_method='fft',
                            decomp=True)
 
     train_loader = DataLoader(dataset, batch_size=128,
@@ -77,23 +80,40 @@ for DATASET in ds:
     trainer = Trainer(gpus=1, max_epochs=5)
     trainer.fit(final_model, train_dataloader=train_loader)
 
-    mlp = MLP(input_size=input_size, horizons=HORIZONS)
+    dataset_lucas = GoncaDataset(window=WINDOW,
+                                 horizons=HORIZONS,
+                                 data_name=DATASET,
+                                 decomp_method='2fft',
+                                 decomp=True)
+
+    train_loader_lucas = DataLoader(dataset_lucas, batch_size=128,
+                                    shuffle=True, num_workers=8)
+    input_example_lucas = next(iter(train_loader_lucas))[0]
+    input_size_lucas = input_example_lucas.shape[1] * \
+        input_example_lucas.shape[2]
+
+    mlp = MLPLucas(window_size=input_example_lucas.shape[1],
+                   n_comps=input_example_lucas.shape[2],
+                   horizons=HORIZONS)
     trainer = Trainer(gpus=1, max_epochs=5)
-    trainer.fit(mlp, train_dataloader=train_loader)
+    trainer.fit(mlp, train_dataloader=train_loader_lucas)
 
     dataset.set_type('test')
+    dataset_lucas.set_type('test')
     mlp = mlp.cpu()
     final_model = final_model.cpu()
     X_test = dataset.samples
+    X_test_lucas = dataset_lucas.samples
     y = dataset.labels/dataset.test_scaler.scale_
+    y_lucas = dataset_lucas.labels/dataset.test_scaler.scale_
     y_final = final_model(X_test).detach()/dataset.test_scaler.scale_
-    y_mlp = mlp(X_test).detach()/dataset.test_scaler.scale_
+    y_mlp = mlp(X_test_lucas).detach()/dataset_lucas.test_scaler.scale_
     # preds = {}
     # preds['Transformer'] = {i: y_final[:, i] for i in range(HORIZONS)}
     # preds['MLP'] = {i: y_mlp[:, i] for i in range(HORIZONS)}
     # refs = {key: {i: y[:, i] for i in range(HORIZONS)} for key in ['T', 'M']}
     for i in range(HORIZONS):
-        mse = MSE(y_final[:, i], y[:, i]).item() 
+        mse = MSE(y_final[:, i], y[:, i]).item()
         TAETS[DATASET]['mse'].append(mse)
         rmse = RMSE().loss(y_final[:, i], y[:, i]).mean().item()
         TAETS[DATASET]['rmse'].append(rmse)
@@ -101,11 +121,11 @@ for DATASET in ds:
         TAETS[DATASET]['mae'].append(mae)
 
     for i in range(HORIZONS):
-        mse = MSE(y_mlp[:, i], y[:, i]).item() 
+        mse = MSE(y_mlp[:, i], y_lucas[:, i]).item()
         MLP_MODEL[DATASET]['mse'].append(mse)
-        rmse = RMSE().loss(y_mlp[:, i], y[:, i]).mean().item()
+        rmse = RMSE().loss(y_mlp[:, i], y_lucas[:, i]).mean().item()
         MLP_MODEL[DATASET]['rmse'].append(rmse)
-        mae = MAE().loss(y_mlp[:, i], y[:, i]).mean().item()
+        mae = MAE().loss(y_mlp[:, i], y_lucas[:, i]).mean().item()
         MLP_MODEL[DATASET]['mae'].append(mae)
 
     y_final = y_final.numpy()
@@ -158,11 +178,12 @@ for DATASET in ds:
     final_model_pure = final_model_pure.cpu()
     X_test_pure = dataset_pure.samples
     y_pure = dataset_pure.labels/dataset_pure.test_scaler.scale_
-    y_final_pure = final_model_pure(X_test_pure).detach()/dataset_pure.test_scaler.scale_
+    y_final_pure = final_model_pure(
+        X_test_pure).detach()/dataset_pure.test_scaler.scale_
     y_mlp_pure = mlp_pure(X_test_pure).detach()/dataset_pure.test_scaler.scale_
 
     for i in range(HORIZONS):
-        mse = MSE(y_final_pure[:, i], y_pure[:, i]).item() 
+        mse = MSE(y_final_pure[:, i], y_pure[:, i]).item()
         TAETS_PURE[DATASET]['mse'].append(mse)
         rmse = RMSE().loss(y_final_pure[:, i], y_pure[:, i]).mean().item()
         TAETS_PURE[DATASET]['rmse'].append(rmse)
@@ -170,7 +191,7 @@ for DATASET in ds:
         TAETS_PURE[DATASET]['mae'].append(mae)
 
     for i in range(HORIZONS):
-        mse = MSE(y_mlp_pure[:, i], y_pure[:, i]).item() 
+        mse = MSE(y_mlp_pure[:, i], y_pure[:, i]).item()
         MLP_PURE[DATASET]['mse'].append(mse)
         rmse = RMSE().loss(y_mlp_pure[:, i], y_pure[:, i]).mean().item()
         MLP_PURE[DATASET]['rmse'].append(rmse)

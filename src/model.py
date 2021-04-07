@@ -7,6 +7,8 @@ from torch.nn import functional as F
 from torch.optim import Adam
 
 # https://pytorch.org/tutorials/beginner/transformer_tutorial.html
+
+
 class PositionalEncoding(nn.Module):
 
     def __init__(self, d_model, dropout=0.1, max_len=5000):
@@ -15,9 +17,10 @@ class PositionalEncoding(nn.Module):
 
         pe = torch.zeros(max_len, d_model)
         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
+        div_term = torch.exp(torch.arange(
+            0, d_model, 2).float() * (-math.log(10000.0) / d_model))
         pe[:, 0::2] = torch.sin(position * div_term)
-        if d_model%2 == 1:
+        if d_model % 2 == 1:
             div_term = div_term[:-1]
         pe[:, 1::2] = torch.cos(position * div_term)
         pe = pe.unsqueeze(0).transpose(0, 1)
@@ -290,6 +293,54 @@ class FinalModule(pl.LightningModule):
         encoded = self.encoder(src)
         out = self.fc_out(encoded)
         return out.squeeze()
+
+    def training_step(self, batch, batch_idx):
+        X, y = batch
+        y_hat = self(X)
+        loss = F.mse_loss(y_hat, y)
+        self.log('train_loss', loss, on_step=True,
+                 on_epoch=True, prog_bar=True, logger=True)
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        X, y = batch
+        y_hat = self(X)
+        loss = F.mse_loss(y_hat, y)
+        self.log('validation_loss', loss, on_step=True,
+                 on_epoch=True, prog_bar=True, logger=True)
+        return loss
+
+    def configure_optimizers(self):
+        return Adam(self.parameters(), lr=0.001)
+
+
+class MLPLucas(pl.LightningModule):
+
+    def __init__(self, window_size, n_comps, horizons=12):
+        super().__init__()
+        base_layer = nn.Sequential(
+            nn.Linear(window_size, 3),
+            nn.ReLU(),
+            nn.Linear(3, 3),
+            nn.ReLU(),
+            nn.Linear(3, 1),
+        )
+
+        self.comp_layers = nn.ModuleList([base_layer]*n_comps)
+        self.fc_out = nn.Sequential(
+            nn.Linear(n_comps, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, horizons),
+        )
+
+    def forward(self, src):
+        batch_size, reg_vars, seq_length = src.shape
+        outputs = torch.zeros((batch_size, 1, seq_length)).to(self.device)
+        for i, layer in enumerate(self.comp_layers):
+            outputs[:, :, i] = layer(src[:, :, i])
+        return self.fc_out(outputs).squeeze()
 
     def training_step(self, batch, batch_idx):
         X, y = batch
