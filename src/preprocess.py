@@ -170,3 +170,81 @@ def prepare_data(serie: np.ndarray, dec: bool,
         X_test = np.expand_dims(X_test, 2)
 
     return X_train, y_train, X_test, y_test, train_scaler, test_scaler
+
+def prepare_data_bench(train_data: np.ndarray, test_data : np.ndarray, dec: bool,
+                 central: str, reg_vars: int,
+                 horizons: int, decomp_method: str) -> tuple:
+    """
+    Preprocess data and separates it in train and test.
+    All the data is normalized.
+
+    Parameters
+    ----------
+    serie : np.ndarray
+        Time Serie data
+
+    dec : bool
+        Rather you wanna decompose or not your serie
+
+    central : str
+        The dataset name
+
+    reg_vars : int
+        How many regvars you want for your model(s)
+
+    horizons : int
+        Number of horizons you want to predict
+
+    decomp_method : str
+        Lucas method or CWT method
+
+    Returns
+    -------
+    tuple
+        X_train, y_train, X_test, y_test, normalizer scaler
+    """
+    train_scaler = MinMaxScaler()
+    test_scaler = MinMaxScaler()
+    train_data = train_scaler.fit_transform(
+        train_data.reshape(-1, 1)).squeeze()
+    test_data = test_scaler.fit_transform(test_data.reshape(-1, 1)).squeeze()
+    if decomp_method == 'fft':
+        if dec:
+            main_components, periods = get_comps(train_data)
+            # sub_comps = get_sub_comps(main_components)
+            # sub_periods = [sub[1] for sub in sub_comps]
+            # sub_comps = [sub[0] for sub in sub_comps]
+            test_components = get_comps_test(
+                test_data, periods, periods)
+            save_comps(main_components, test_components, central)
+        else:
+            main_components, test_components = load_sub_comps(central)
+        X_train, y_train = set_data(train_data, main_components,
+                                    reg_vars=reg_vars, horizons=horizons)
+        X_test, y_test = set_data(test_data, test_components,
+                                  reg_vars=reg_vars,
+                                  horizons=horizons)
+    elif decomp_method == '2fft':
+        if dec:
+            main_components, periods = get_comps(train_data)
+            sub_comps = get_sub_comps(main_components)
+            sub_periods = [sub[1] for sub in sub_comps]
+            sub_comps = [sub[0] for sub in sub_comps]
+            test_components = get_comps_test(
+                test_data, periods, sub_periods, True)
+            save_comps(sub_comps, test_components, central)
+        else:
+            main_components, test_components = load_sub_comps(central)
+        X_train, y_train = set_data(train_data, sub_comps,
+                                    reg_vars=reg_vars, horizons=horizons,
+                                    double_dec=True)
+        X_test, y_test = set_data(test_data, test_components,
+                                  reg_vars=reg_vars,
+                                  horizons=horizons, double_dec=True)
+    else:
+        X_train, y_train = nodecomp_prepare(train_data, reg_vars, horizons)
+        X_test, y_test = nodecomp_prepare(test_data, reg_vars, horizons)
+        X_train = np.expand_dims(X_train, 2)
+        X_test = np.expand_dims(X_test, 2)
+
+    return X_train, y_train, X_test, y_test, train_scaler, test_scaler

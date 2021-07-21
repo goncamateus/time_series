@@ -1,1 +1,1 @@
-# Projeto da cadeira de séries temporais 2020.2
+# Time-series studies

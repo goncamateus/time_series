@@ -2,13 +2,15 @@ import os
 
 import mat73
 import numpy as np
+import pandas as pd
 import scipy.io
 import torch
 import torch.utils.data
-from src.preprocess import prepare_data
+
+from src.preprocess import prepare_data, prepare_data_bench
 
 
-class MTSFDataset(torch.utils.data.Dataset):
+class Dataset(torch.utils.data.Dataset):
     """Multi-variate Time-Series Dataset for *.txt file
 
     Returns:
@@ -19,16 +21,13 @@ class MTSFDataset(torch.utils.data.Dataset):
                  window,
                  horizon,
                  data_name='wecar',
-                 set_type='train',    # 'train'/'validation'/'test'
                  data_dir='./data'):
-        assert type(set_type) == type('str')
         self.window = window
         self.horizon = horizon
         self.data_dir = data_dir
-        self.set_type = set_type
 
         file_path = os.path.join(
-            data_dir, data_name, '{}_{}.txt'.format(data_name, set_type))
+            data_dir, data_name, '{}.txt'.format(data_name))
 
         rawdata = np.loadtxt(open(file_path), delimiter=',')
         self.len, self.var_num = rawdata.shape
@@ -96,6 +95,76 @@ class GoncaDataset(torch.utils.data.Dataset):
             train_scaler, test_scaler = prepare_data(rawdata, decomp,
                                                      data_name, window,
                                                      horizons, decomp_method)
+
+        self.X_train = torch.FloatTensor(X_train)
+        self.y_train = torch.FloatTensor(y_train)
+        self.train_scaler = train_scaler
+        self.X_test = torch.FloatTensor(X_test)
+        self.y_test = torch.FloatTensor(y_test)
+        self.test_scaler = test_scaler
+
+        if self.type == 'train':
+            self.samples = self.X_train
+            self.labels = self.y_train
+            self.sample_num = len(self.X_train)
+        else:
+            self.samples = self.X_test
+            self.labels = self.y_test
+            self.sample_num = len(self.X_test)
+
+    def set_type(self, type='train'):
+        self.type = type
+        if self.type == 'train':
+            self.samples = self.X_train
+            self.labels = self.y_train
+            self.sample_num = len(self.X_train)
+        else:
+            self.samples = self.X_test
+            self.labels = self.y_test
+            self.sample_num = len(self.X_test)
+
+    def __len__(self):
+        return self.sample_num
+
+    def __getitem__(self, idx):
+        sample = [self.samples[idx, :, :], self.labels[idx]]
+
+        return sample
+
+
+class BenchDataset(torch.utils.data.Dataset):
+    """Multi-variate Time-Series Dataset for *.txt file
+
+    Returns:
+        [sample, label]
+    """
+
+    def __init__(self,
+                 window,
+                 horizons,
+                 data_name='wecar',
+                 data_dir='./data/inputs',
+                 decomp=True,
+                 decomp_method='fft',
+                 type='train'):
+        self.window = window
+        self.horizons = horizons
+        self.data_dir = data_dir
+        self.type = type
+        self.decomp_method = decomp_method
+
+        file_path = os.path.join(data_dir, '{}_treino.csv'.format(data_name))
+        train_data = pd.read_csv(file_path)[data_name].values
+
+        file_path = os.path.join(data_dir, '{}_teste.csv'.format(data_name))
+        test_data = pd.read_csv(file_path)[data_name].values
+
+        X_train, y_train, X_test, y_test,\
+            train_scaler, test_scaler = prepare_data_bench(train_data,
+                                                           test_data, decomp,
+                                                           data_name, window,
+                                                           horizons,
+                                                           decomp_method)
 
         self.X_train = torch.FloatTensor(X_train)
         self.y_train = torch.FloatTensor(y_train)
