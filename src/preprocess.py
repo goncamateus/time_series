@@ -133,9 +133,6 @@ def prepare_data(serie: np.ndarray, dec: bool,
     if decomp_method == 'fft':
         if dec:
             main_components, periods = get_comps(train_data)
-            # sub_comps = get_sub_comps(main_components)
-            # sub_periods = [sub[1] for sub in sub_comps]
-            # sub_comps = [sub[0] for sub in sub_comps]
             test_components = get_comps_test(
                 test_data, periods, periods)
             save_comps(main_components, test_components, central)
@@ -171,9 +168,10 @@ def prepare_data(serie: np.ndarray, dec: bool,
 
     return X_train, y_train, X_test, y_test, train_scaler, test_scaler
 
-def prepare_data_bench(train_data: np.ndarray, test_data : np.ndarray, dec: bool,
-                 central: str, reg_vars: int,
-                 horizons: int, decomp_method: str) -> tuple:
+
+def prepare_data_bench(train_data: np.ndarray, test_data: np.ndarray, dec: bool,
+                       central: str, reg_vars: int,
+                       horizons: int, decomp_method: str) -> tuple:
     """
     Preprocess data and separates it in train and test.
     All the data is normalized.
@@ -211,12 +209,9 @@ def prepare_data_bench(train_data: np.ndarray, test_data : np.ndarray, dec: bool
     if decomp_method == 'fft':
         if dec:
             main_components, periods = get_comps(train_data)
-            # sub_comps = get_sub_comps(main_components)
-            # sub_periods = [sub[1] for sub in sub_comps]
-            # sub_comps = [sub[0] for sub in sub_comps]
             test_components = get_comps_test(
                 test_data, periods, periods)
-            save_comps(main_components, test_components, central)
+            # save_comps(main_components, test_components, central)
         else:
             main_components, test_components = load_sub_comps(central)
         X_train, y_train = set_data(train_data, main_components,
@@ -232,7 +227,7 @@ def prepare_data_bench(train_data: np.ndarray, test_data : np.ndarray, dec: bool
             sub_comps = [sub[0] for sub in sub_comps]
             test_components = get_comps_test(
                 test_data, periods, sub_periods, True)
-            save_comps(sub_comps, test_components, central)
+            # save_comps(sub_comps, test_components, central)
         else:
             main_components, test_components = load_sub_comps(central)
         X_train, y_train = set_data(train_data, sub_comps,
