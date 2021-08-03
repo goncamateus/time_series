@@ -80,14 +80,17 @@ class CERDataset(torch.utils.data.Dataset):
         train_name = data_name + '_Cal.csv'
         test_name = data_name + '_Op.csv'
 
-        train_data = pd.read_csv(os.path.join(file_path, train_name))
-        test_data = pd.read_csv(os.path.join(file_path, test_name))
+        train_name = os.path.join(file_path, train_name)
+        test_name = os.path.join(file_path, test_name)
 
-        train_data = train_data.dropna()
-        test_data = test_data.dropna()
+        train_data = pd.read_csv(train_name)
+        test_data = pd.read_csv(test_name)
 
-        train_data = train_data['PotTotal'].values
-        test_data = test_data['PotTotal'].values
+        self.df_train = train_data.dropna()
+        self.df_test = test_data.dropna()
+
+        train_data = self.df_train['PotTotal'].values
+        test_data = self.df_test['PotTotal'].values
 
         X_train, y_train, X_test, y_test,\
             train_scaler, test_scaler = prepare_data_bench(train_data,
@@ -102,6 +105,9 @@ class CERDataset(torch.utils.data.Dataset):
         self.X_test = torch.FloatTensor(X_test)
         self.y_test = torch.FloatTensor(y_test)
         self.test_scaler = test_scaler
+        
+        self.train_name = train_name
+        self.test_name = test_name
 
         if self.type == 'train':
             self.samples = self.X_train

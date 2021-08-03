@@ -46,10 +46,15 @@ MESES = ['Sep', 'Oct', 'Nov', 'Dec']
 TIME_STEPS = ['30_min', '1_day']
 
 
-def save_pred(pred, horizon, dir_name):
-    y = [None]*horizon + pred.tolist()
-    df = pd.DataFrame(y, columns=[f'horizonte_{horizon}'])
-    file_name = dir_name.split('/')[-1] + f'_{horizon+1}' + '.csv'
+def save_pred(pred, dir_name, index):
+    data = []
+    for i in range(pred.shape[1]):
+        y = [None]*(i+WINDOW) + pred[:, i].tolist() + [None]*(HORIZONS - i - 1)
+        data.append(y)
+    data = np.array(data)
+    df = pd.DataFrame(data).T
+    df = df.set_index(index)
+    file_name = dir_name.split('/')[-1] + '.csv'
     df.to_csv(f'{dir_name}/{file_name}')
 
 
@@ -131,11 +136,10 @@ def main():
 
                     y_final = y_final.numpy()
                     y_mlp = y_mlp.numpy()
-                    for i in range(y.shape[1]):
-                        save_pred(y_final[:, i], horizon=i,
-                                  dir_name=dir_name + '_SAETS')
-                        save_pred(y_mlp[:, i], horizon=i,
-                                  dir_name=dir_name + '_Cabral')
+                    save_pred(y_final, dir_name=dir_name + '_SAETS',
+                              index=dataset.df_test['Timestamps'])
+                    save_pred(y_mlp, dir_name=dir_name + '_Cabral',
+                              index=dataset.df_test['Timestamps'])
 
 
 if __name__ == "__main__":
