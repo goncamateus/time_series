@@ -87,6 +87,11 @@ class CERDataset(torch.utils.data.Dataset):
         self.df_train = train_data.dropna()
         self.df_test = test_data.dropna()
 
+        if time_step == "30_min":
+            self.df_train = self.df_train.tail(2928)
+        else:
+            self.df_train = self.df_train.tail(61)
+
         train_data = self.df_train["PotTotal"].values
         test_data = self.df_test["PotTotal"].values
 
