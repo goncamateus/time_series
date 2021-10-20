@@ -4,7 +4,7 @@ import numpy as np
 from scipy.signal import find_peaks, hilbert
 
 
-def get_periods(serie: np.ndarray) -> np.ndarray:
+def get_periods(serie: np.ndarray, time_step: float = 30 / 525600) -> np.ndarray:
     """
     Extract periods with most importance in 
     the Fourier Transformed Serie.
@@ -23,26 +23,21 @@ def get_periods(serie: np.ndarray) -> np.ndarray:
     fft_serie = np.fft.fft(serie)
     fft_serie = fft_serie[:int(fft_serie.size/2)]
     fft_serie = hilbert(np.abs(fft_serie))
-    # ts is set to 30 days here
-    # set it for your purpose
-    ts = 30/(24*60)
     peaks_idx = find_peaks(fft_serie)[0]
     peaks_idx = np.array(peaks_idx)
-    periodos = np.round(1/(peaks_idx*ts))
+    periodos = np.round(1 / (peaks_idx * time_step))
     periodos = list(set(periodos))
     periodos.reverse()
     if 0 in periodos:
         periodos.remove(0)
-    periodos = np.array(periodos, dtype=np.int64)
+    periodos = np.array(periodos, dtype=np.int64)[:10]
     return periodos
 
 
-def dedecomp(serie: np.ndarray,
-             to_subtract: np.ndarray,
-             period: int) -> np.ndarray:
+def dedecomp(serie: np.ndarray, to_subtract: np.ndarray, period: int) -> np.ndarray:
     comp = serie.copy()
     for i in range(len(serie)):
-        comp[i] = np.mean(serie[i:period+i] - to_subtract[:, i].sum())
+        comp[i] = np.mean(serie[i : period + i] - to_subtract[:, i].sum())
     return comp
 
 

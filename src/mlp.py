@@ -6,7 +6,6 @@ from torch.optim import Adam
 
 
 class MLP(pl.LightningModule):
-
     def __init__(self, input_size, horizons=12):
         super().__init__()
         self.layers = nn.Sequential(
@@ -16,26 +15,41 @@ class MLP(pl.LightningModule):
             nn.ReLU(),
             nn.Linear(256, horizons),
         )
+        self.init_weights()
+
+    def init_weights(self):
+        def inside(m):
+            if isinstance(m, nn.Linear):
+                torch.nn.init.xavier_uniform(m.weight)
+                m.bias.data.fill_(0.01)
+        self.apply(inside)
 
     def forward(self, src):
         batch_size, reg_vars, seq_length = src.shape
-        X = src.view(batch_size, 1, reg_vars*seq_length).float()
+        X = src.view(batch_size, 1, reg_vars * seq_length).float()
         return self.layers(X).squeeze()
 
     def training_step(self, batch, batch_idx):
         X, y = batch
         y_hat = self(X)
         loss = F.mse_loss(y_hat, y)
-        self.log('train_loss', loss, on_step=True,
-                 on_epoch=True, prog_bar=True, logger=True)
+        self.log(
+            "train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True
+        )
         return loss
 
     def validation_step(self, batch, batch_idx):
         X, y = batch
         y_hat = self(X)
         loss = F.mse_loss(y_hat, y)
-        self.log('validation_loss', loss, on_step=True,
-                 on_epoch=True, prog_bar=True, logger=True)
+        self.log(
+            "validation_loss",
+            loss,
+            on_step=True,
+            on_epoch=True,
+            prog_bar=True,
+            logger=True,
+        )
         return loss
 
     def configure_optimizers(self):
@@ -43,7 +57,6 @@ class MLP(pl.LightningModule):
 
 
 class MLPLucas(pl.LightningModule):
-
     def __init__(self, window_size, n_comps, horizons=12):
         super().__init__()
         base_layer = nn.Sequential(
@@ -54,7 +67,7 @@ class MLPLucas(pl.LightningModule):
             nn.Linear(3, 1),
         )
 
-        self.comp_layers = nn.ModuleList([base_layer]*n_comps)
+        self.comp_layers = nn.ModuleList([base_layer] * n_comps)
         self.fc_out = nn.Sequential(
             nn.Linear(n_comps, 256),
             nn.ReLU(),
@@ -74,16 +87,23 @@ class MLPLucas(pl.LightningModule):
         X, y = batch
         y_hat = self(X)
         loss = F.mse_loss(y_hat, y)
-        self.log('train_loss', loss, on_step=True,
-                 on_epoch=True, prog_bar=True, logger=True)
+        self.log(
+            "train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True
+        )
         return loss
 
     def validation_step(self, batch, batch_idx):
         X, y = batch
         y_hat = self(X)
         loss = F.mse_loss(y_hat, y)
-        self.log('validation_loss', loss, on_step=True,
-                 on_epoch=True, prog_bar=True, logger=True)
+        self.log(
+            "validation_loss",
+            loss,
+            on_step=True,
+            on_epoch=True,
+            prog_bar=True,
+            logger=True,
+        )
         return loss
 
     def configure_optimizers(self):
