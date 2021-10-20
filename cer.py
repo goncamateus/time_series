@@ -124,6 +124,10 @@ for COMPLEXO_EOLICO, centrais in complexos.items():
     for CENTRAL_EOLICA in centrais:
         for TIME_STEP in steps:
             for MES in meses:
+                print()
+                print()
+                print()
+                print(f'{COMPLEXO_EOLICO}->{CENTRAL_EOLICA}->{TIME_STEP}->{MES}')
                 DECOMP = True
                 DEVICE = torch.device("cuda")
                 if not os.path.exists(
