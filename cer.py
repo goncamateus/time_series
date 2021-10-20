@@ -176,18 +176,9 @@ for COMPLEXO_EOLICO, centrais in complexos.items():
                             mlp(X_test_lucas).detach()
                             / dataset_lucas.test_scaler.scale_
                         )
-                        y = dataset_lucas.labels / dataset_lucas.test_scaler.scale_
-
                         y_mlp = y_mlp.numpy()
-                        y = y.numpy()
-                        print(trainer.callback_metrics)
-
-                        plt.plot(y)
-                        plt.plot(y_mlp)
-                        plt.legend(["Original", "Cabral"])
-                        plt.show()
-                        again = input("Again? [y|n]: ")
-                        again = again[0] == "y"          
+                        latest_loss = trainer.callback_metrics['train_loss'].item() 
+                        again = latest_loss < 0.022
                         if not again:
                             res = [None] * 3 + [None] * i + y_mlp.tolist()
                             res = np.array(res)
