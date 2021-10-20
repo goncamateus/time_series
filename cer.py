@@ -180,13 +180,13 @@ for COMPLEXO_EOLICO, centrais in complexos.items():
 
                         y_mlp = y_mlp.numpy()
                         y = y.numpy()
+                        print(trainer.callback_metrics)
 
                         plt.plot(y)
                         plt.plot(y_mlp)
                         plt.legend(["Original", "Cabral"])
                         plt.show()
                         again = input("Again? [y|n]: ")
-                        print(again[0])
                         again = again[0] == "y"          
                         if not again:
                             res = [None] * 3 + [None] * i + y_mlp.tolist()
