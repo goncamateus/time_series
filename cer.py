@@ -108,13 +108,15 @@ complexos = {
     "Riachao": [
         "Riachao_I",
         "Riachao_II",
-        "Riachao_III",
         "Riachao_IV",
-        "Riachao_V",
         "Riachao_VI",
         "Riachao_VII",
     ],
-    "Taiba": ["Aguia", "Andorinha", "Colonia"],
+    "Taiba": [
+        "Aguia",
+        "Andorinha",
+        "Colonia"
+      ],
 }
 steps = ["30_min"]
 meses = ["Sep", "Oct", "Nov", "Dec"]
@@ -124,10 +126,6 @@ for COMPLEXO_EOLICO, centrais in complexos.items():
     for CENTRAL_EOLICA in centrais:
         for TIME_STEP in steps:
             for MES in meses:
-                print()
-                print()
-                print()
-                print(f'{COMPLEXO_EOLICO}->{CENTRAL_EOLICA}->{TIME_STEP}->{MES}')
                 DECOMP = True
                 DEVICE = torch.device("cuda")
                 if not os.path.exists(
@@ -136,8 +134,8 @@ for COMPLEXO_EOLICO, centrais in complexos.items():
                     os.system(
                         f"mkdir data/components/{CENTRAL_EOLICA}_{MES}_{TIME_STEP}"
                     )
-                if not os.path.exists(f"data/out/{CENTRAL_EOLICA}_{MES}_{TIME_STEP}"):
-                    os.system(f"mkdir data/out/{CENTRAL_EOLICA}_{MES}_{TIME_STEP}")
+                if not os.path.exists(f"data/out/{COMPLEXO_EOLICO}"):
+                    os.system(f"mkdir data/out/{COMPLEXO_EOLICO}")
 
                 dataset_lucas = CERDataset(
                     window=WINDOW,
@@ -155,6 +153,10 @@ for COMPLEXO_EOLICO, centrais in complexos.items():
                         print(
                             "--------------------------------------------------------"
                         )
+                        print()
+                        print()
+                        print()
+                        print(f'{COMPLEXO_EOLICO}->{CENTRAL_EOLICA}->{TIME_STEP}->{MES}')
                         print(f"Horizon: {i+1}")
                         dataset_lucas.set_type("train")
                         dataset_lucas.set_horizon(i)
@@ -171,7 +173,7 @@ for COMPLEXO_EOLICO, centrais in complexos.items():
                             n_comps=input_example_lucas.shape[2],
                             horizons=1,
                         )
-                        trainer = Trainer(gpus=1, max_epochs=10)
+                        trainer = Trainer(gpus=1, max_epochs=30)
                         trainer.fit(mlp, train_dataloaders=train_loader_lucas)
                         dataset_lucas.set_type("test")
                         mlp = mlp.cpu()
@@ -182,7 +184,7 @@ for COMPLEXO_EOLICO, centrais in complexos.items():
                         )
                         y_mlp = y_mlp.numpy()
                         latest_loss = trainer.callback_metrics['train_loss'].item() 
-                        again = latest_loss < 0.022
+                        again = latest_loss > 0.01
                         if not again:
                             res = [None] * 3 + [None] * i + y_mlp.tolist()
                             res = np.array(res)
@@ -207,13 +209,16 @@ for COMPLEXO_EOLICO, centrais in complexos.items():
                             results[COMPLEXO_EOLICO][CENTRAL_EOLICA][TIME_STEP][MES][
                                 i + 1
                             ] = res
-
-for complexo, centrais in results.items():
-    for central, times in centrais.items():
-        for time, meses in times.items():
-            for mes, horizons in meses.items():
-                np.stack(horizons, axis=0).tofile(
-                    f"data/out/{central}_{mes}_{time}.csv", sep=","
+                res = pd.DataFrame(results[COMPLEXO_EOLICO][CENTRAL_EOLICA][TIME_STEP][MES])
+                res.to_csv(
+                    f"data/out/{COMPLEXO_EOLICO}/{CENTRAL_EOLICA}_{MES}_{TIME_STEP}.csv"
                 )
+# for complexo, centrais in results.items():
+#     for central, times in centrais.items():
+#         for time, meses in times.items():
+#             for mes, horizons in meses.items():
+#                 np.stack(horizons, axis=0).tofile(
+#                     f"data/out/{central}_{mes}_{time}.csv", sep=","
+#                 )
 
 
