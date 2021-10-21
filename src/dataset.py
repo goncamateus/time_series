@@ -95,7 +95,7 @@ class CERDataset(torch.utils.data.Dataset):
         test_data = self.df_test["PotTotal"].values
 
         if time_step == "1_day":
-            plus = train_data[15:]
+            plus = train_data[-15:]
             test_data = np.concatenate((plus, test_data))
 
         (

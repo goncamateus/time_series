@@ -184,11 +184,16 @@ for COMPLEXO_EOLICO, centrais in complexos.items():
                         )
                         y_mlp = y_mlp.numpy()
                         latest_loss = trainer.callback_metrics['train_loss'].item() 
-                        again = latest_loss > 0.01
+                        if TIME_STEP == "30_min": 
+                            again = latest_loss > 0.01
+                        else:
+                            again = False
                         if not again:
-                            res = y_mlp
                             if TIME_STEP == "30_min":
-                                res = [None] * 3 + [None] * i + res.tolist()
+                                res = [None] * 3 + [None] * i + y_mlp.tolist()
+                            else:
+                                ori_test_len = len(dataset_lucas.df_test)
+                                res = y_mlp[-ori_test_len:]
                             res = np.array(res)
                             if COMPLEXO_EOLICO not in results:
                                 results[COMPLEXO_EOLICO] = {}
