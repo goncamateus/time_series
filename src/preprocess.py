@@ -7,8 +7,8 @@ from sklearn.preprocessing import MinMaxScaler
 from src.decomposition import decomp, get_periods
 
 
-def get_comps(serie: np.ndarray, sub=False, time_step=30 / 525600):
-    periods = get_periods(serie, time_step=time_step)
+def get_comps(serie: np.ndarray, sub=False, sampling=30 / 525600):
+    periods = get_periods(serie, sampling=sampling)
     plus_str = "sub comp" if sub else "serie"
     print(f"Decomp {plus_str} in {periods.size} components")
     components = decomp(serie, periods)
@@ -16,10 +16,10 @@ def get_comps(serie: np.ndarray, sub=False, time_step=30 / 525600):
     return components, periods
 
 
-def get_sub_comps(main_components: np.ndarray, time_step=30 / 525600):
+def get_sub_comps(main_components: np.ndarray, sampling=30 / 525600):
     sub_comps = []
     for comp in main_components.transpose():
-        comps, sub_periods = get_comps(comp, sub=True, time_step=time_step)
+        comps, sub_periods = get_comps(comp, sub=True, sampling=sampling)
         sub_comps.append((comps, sub_periods))
     return sub_comps
 
@@ -310,7 +310,7 @@ def prepare_data_relatorio(
     reg_vars: int,
     horizons: int,
     decomp_method: str,
-    time_step=30 / 525600,
+    sampling=30 / 525600,
 ) -> tuple:
     """
     Preprocess data and separates it in train and test.
@@ -347,7 +347,7 @@ def prepare_data_relatorio(
     test_data = test_scaler.fit_transform(test_data.reshape(-1, 1)).squeeze()
     if decomp_method == "fft":
         if dec:
-            main_components, periods = get_comps(train_data, time_step=time_step)
+            main_components, periods = get_comps(train_data, sampling=sampling)
             test_components = get_comps_test(test_data, periods, periods)
             # save_comps(main_components, test_components, central)
         else:
@@ -360,8 +360,8 @@ def prepare_data_relatorio(
         )
     elif decomp_method == "2fft":
         if dec:
-            main_components, periods = get_comps(train_data, time_step=time_step)
-            sub_comps = get_sub_comps(main_components, time_step=time_step)
+            main_components, periods = get_comps(train_data, sampling=sampling)
+            sub_comps = get_sub_comps(main_components, sampling=sampling)
             sub_periods = [sub[1] for sub in sub_comps]
             sub_comps = [sub[0] for sub in sub_comps]
             test_components = get_comps_test(test_data, periods, sub_periods, True)

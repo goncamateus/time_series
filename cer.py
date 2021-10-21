@@ -118,7 +118,7 @@ complexos = {
         "Colonia"
       ],
 }
-steps = ["30_min"]
+steps = ["1_day"]
 meses = ["Sep", "Oct", "Nov", "Dec"]
 COMPLEXO_EOLICO = "Amontada"
 results = {}
@@ -186,7 +186,9 @@ for COMPLEXO_EOLICO, centrais in complexos.items():
                         latest_loss = trainer.callback_metrics['train_loss'].item() 
                         again = latest_loss > 0.01
                         if not again:
-                            res = [None] * 3 + [None] * i + y_mlp.tolist()
+                            res = y_mlp
+                            if TIME_STEP == "30_min":
+                                res = [None] * 3 + [None] * i + res.tolist()
                             res = np.array(res)
                             if COMPLEXO_EOLICO not in results:
                                 results[COMPLEXO_EOLICO] = {}
@@ -213,12 +215,3 @@ for COMPLEXO_EOLICO, centrais in complexos.items():
                 res.to_csv(
                     f"data/out/{COMPLEXO_EOLICO}/{CENTRAL_EOLICA}_{MES}_{TIME_STEP}.csv"
                 )
-# for complexo, centrais in results.items():
-#     for central, times in centrais.items():
-#         for time, meses in times.items():
-#             for mes, horizons in meses.items():
-#                 np.stack(horizons, axis=0).tofile(
-#                     f"data/out/{central}_{mes}_{time}.csv", sep=","
-#                 )
-
-

@@ -4,7 +4,7 @@ import numpy as np
 from scipy.signal import find_peaks, hilbert
 
 
-def get_periods(serie: np.ndarray, time_step: float = 30 / 525600) -> np.ndarray:
+def get_periods(serie: np.ndarray, sampling: float = 30 / 525600) -> np.ndarray:
     """
     Extract periods with most importance in 
     the Fourier Transformed Serie.
@@ -25,7 +25,7 @@ def get_periods(serie: np.ndarray, time_step: float = 30 / 525600) -> np.ndarray
     fft_serie = hilbert(np.abs(fft_serie))
     peaks_idx = find_peaks(fft_serie)[0]
     peaks_idx = np.array(peaks_idx)
-    periodos = np.round(1 / (peaks_idx * time_step))
+    periodos = np.round(1 / (peaks_idx * sampling))
     periodos = list(set(periodos))
     periodos.reverse()
     if 0 in periodos:

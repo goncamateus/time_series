@@ -71,6 +71,7 @@ class CERDataset(torch.utils.data.Dataset):
         self.data_dir = data_dir
         self.type = type
         self.decomp_method = decomp_method
+        self.time_step = time_step
 
         central_dir = central_eolica + "_SCADA_" + time_step
         file_path = os.path.join(data_dir, complexo_eolico, central_dir)
@@ -93,6 +94,10 @@ class CERDataset(torch.utils.data.Dataset):
         train_data = self.df_train["PotTotal"].values
         test_data = self.df_test["PotTotal"].values
 
+        if time_step == "1_day":
+            plus = train_data[15:]
+            test_data = np.concatenate((plus, test_data))
+
         (
             X_train,
             y_train,
@@ -108,7 +113,7 @@ class CERDataset(torch.utils.data.Dataset):
             window,
             horizons,
             decomp_method,
-            time_step=1/50
+            sampling=1 / 50,
         )
 
         self.train_scaler = train_scaler
