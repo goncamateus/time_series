@@ -22,77 +22,6 @@ WINDOW = 3
 DROPOUT = 0.0
 DECOMP_METHOD = "2fft"
 
-
-def plot_taylor(refs: dict, predictions_dict: dict):
-
-    models = list(predictions_dict.keys())
-    colors = ["c", "m", "y", "k", "r", "b", "g"]
-    colors = colors[: len(models)]
-    models = {model: color for model, color in zip(models, colors)}
-    for idx, (model, pred_dict) in enumerate(predictions_dict.items()):
-        taylor_stats = []
-        name = model[0]
-        if model.endswith("ND"):
-            name = name + "ND"
-        for horizon, pred in pred_dict.items():
-            taylor_stats.append(
-                sm.taylor_statistics(pred, refs[name][int(horizon)], "data")
-            )
-
-        sdev = np.array(
-            [taylor_stats[0]["sdev"][0]] + [x["sdev"][1] for x in taylor_stats]
-        )
-        crmsd = np.array(
-            [taylor_stats[0]["crmsd"][0]] + [x["crmsd"][1] for x in taylor_stats]
-        )
-        ccoef = np.array(
-            [taylor_stats[0]["ccoef"][0]] + [x["ccoef"][1] for x in taylor_stats]
-        )
-
-        # To change other params in the plot, check SkillMetrics documentation in
-        # https://github.com/PeterRochford/SkillMetrics/wiki/Target-Diagram-Options
-        if len(list(predictions_dict.keys())) != 1:
-            if (
-                idx != len(list(predictions_dict.keys())) - 1
-                or len(list(predictions_dict.keys())) == 1
-            ):
-                sm.taylor_diagram(
-                    sdev,
-                    crmsd,
-                    ccoef,
-                    styleOBS="-",
-                    colOBS="g",
-                    markerobs="o",
-                    titleOBS="Observation",
-                    markercolor=models[model],
-                )
-            else:
-                sm.taylor_diagram(
-                    sdev,
-                    crmsd,
-                    ccoef,
-                    styleOBS="-",
-                    titleOBS="Observation",
-                    colOBS="g",
-                    markerobs="o",
-                    markercolor=models[model],
-                    overlay="on",
-                    markerLabel=models,
-                )
-        else:
-            sm.taylor_diagram(
-                sdev,
-                crmsd,
-                ccoef,
-                styleOBS="-",
-                colOBS="g",
-                markerobs="o",
-                titleOBS="Observation",
-                markercolor="c",
-                markerLabel=["placeholder"] + [k + 1 for k, v in pred_dict.items()],
-            )
-
-
 complexos = {
     "Amontada": ["BC", "IG", "RIB"],
     "Caldeirao": [
@@ -105,22 +34,11 @@ complexos = {
         "Santo_Albano",
     ],
     "Icarai": ["Icarai_I", "Icarai_II"],
-    "Riachao": [
-        "Riachao_I",
-        "Riachao_II",
-        "Riachao_IV",
-        "Riachao_VI",
-        "Riachao_VII",
-    ],
-    "Taiba": [
-        "Aguia",
-        "Andorinha",
-        "Colonia"
-      ],
+    "Riachao": ["Riachao_I", "Riachao_II", "Riachao_IV", "Riachao_VI", "Riachao_VII",],
+    "Taiba": ["Aguia", "Andorinha", "Colonia"],
 }
-steps = ["1_day"]
+steps = ["30_min", "1_day"]
 meses = ["Sep", "Oct", "Nov", "Dec"]
-COMPLEXO_EOLICO = "Amontada"
 results = {}
 for COMPLEXO_EOLICO, centrais in complexos.items():
     for CENTRAL_EOLICA in centrais:
@@ -147,7 +65,7 @@ for COMPLEXO_EOLICO, centrais in complexos.items():
                     decomp=DECOMP,
                     decomp_method=DECOMP_METHOD,
                 )
-                for i in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]:
+                for i in range(HORIZONS):
                     again = True
                     while again:
                         print(
@@ -156,7 +74,9 @@ for COMPLEXO_EOLICO, centrais in complexos.items():
                         print()
                         print()
                         print()
-                        print(f'{COMPLEXO_EOLICO}->{CENTRAL_EOLICA}->{TIME_STEP}->{MES}')
+                        print(
+                            f"{COMPLEXO_EOLICO}->{CENTRAL_EOLICA}->{TIME_STEP}->{MES}"
+                        )
                         print(f"Horizon: {i+1}")
                         dataset_lucas.set_type("train")
                         dataset_lucas.set_horizon(i)
@@ -183,8 +103,8 @@ for COMPLEXO_EOLICO, centrais in complexos.items():
                             / dataset_lucas.test_scaler.scale_
                         )
                         y_mlp = y_mlp.numpy()
-                        latest_loss = trainer.callback_metrics['train_loss'].item() 
-                        if TIME_STEP == "30_min": 
+                        latest_loss = trainer.callback_metrics["train_loss"].item()
+                        if TIME_STEP == "30_min":
                             again = latest_loss > 0.01
                         else:
                             again = False
@@ -216,7 +136,11 @@ for COMPLEXO_EOLICO, centrais in complexos.items():
                             results[COMPLEXO_EOLICO][CENTRAL_EOLICA][TIME_STEP][MES][
                                 i + 1
                             ] = res
-                res = pd.DataFrame(results[COMPLEXO_EOLICO][CENTRAL_EOLICA][TIME_STEP][MES])
+                res = pd.DataFrame(
+                    results[COMPLEXO_EOLICO][CENTRAL_EOLICA][TIME_STEP][MES]
+                )
+                res.set_index(dataset_lucas.df_test["Timestamps"])
                 res.to_csv(
-                    f"data/out/{COMPLEXO_EOLICO}/{CENTRAL_EOLICA}_{MES}_{TIME_STEP}.csv"
+                    f"data/out/{COMPLEXO_EOLICO}/{CENTRAL_EOLICA}_{MES}_{TIME_STEP}.csv",
+                    header=False,
                 )
