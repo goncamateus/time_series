@@ -27,7 +27,7 @@ complexos = {
     "Caldeirao": [
         "Santa_Angelina",
         "Santa_Barbara",
-        "Santa_Ediwiges",
+        "Santa_Edwiges",
         "Santa_Fatima",
         "Santa_Regina",
         "Santo_Adriano",
@@ -139,7 +139,7 @@ for COMPLEXO_EOLICO, centrais in complexos.items():
                 res = pd.DataFrame(
                     results[COMPLEXO_EOLICO][CENTRAL_EOLICA][TIME_STEP][MES]
                 )
-                res.set_index(dataset_lucas.df_test["Timestamps"])
+                res = res.set_index(dataset_lucas.df_test["Timestamps"])
                 res.to_csv(
                     f"data/out/{COMPLEXO_EOLICO}/{CENTRAL_EOLICA}_{MES}_{TIME_STEP}.csv",
                     header=False,
