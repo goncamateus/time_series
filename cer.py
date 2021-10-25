@@ -18,8 +18,6 @@ from src.mlp import MLPLucas
 seaborn.set()
 
 HORIZONS = 12
-WINDOW = 3
-DROPOUT = 0.0
 DECOMP_METHOD = "2fft"
 
 complexos = {
@@ -43,6 +41,13 @@ results = {}
 for COMPLEXO_EOLICO, centrais in complexos.items():
     for CENTRAL_EOLICA in centrais:
         for TIME_STEP in steps:
+            BATCH_SIZE = 128
+            WINDOW = 3
+            EPOCHS = 30
+            if TIME_STEP == "1_day":
+                WINDOW = 10
+                BATCH_SIZE = 16
+                EPOCHS = 50
             for MES in meses:
                 DECOMP = True
                 DEVICE = torch.device("cuda")
@@ -81,7 +86,10 @@ for COMPLEXO_EOLICO, centrais in complexos.items():
                         dataset_lucas.set_type("train")
                         dataset_lucas.set_horizon(i)
                         train_loader_lucas = DataLoader(
-                            dataset_lucas, batch_size=128, shuffle=True, num_workers=8
+                            dataset_lucas,
+                            batch_size=BATCH_SIZE,
+                            shuffle=True,
+                            num_workers=8,
                         )
                         input_example_lucas = next(iter(train_loader_lucas))[0]
                         input_size_lucas = (
@@ -93,7 +101,7 @@ for COMPLEXO_EOLICO, centrais in complexos.items():
                             n_comps=input_example_lucas.shape[2],
                             horizons=1,
                         )
-                        trainer = Trainer(gpus=1, max_epochs=30)
+                        trainer = Trainer(gpus=1, max_epochs=EPOCHS)
                         trainer.fit(mlp, train_dataloaders=train_loader_lucas)
                         dataset_lucas.set_type("test")
                         mlp = mlp.cpu()
