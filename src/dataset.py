@@ -7,7 +7,8 @@ import scipy.io
 import torch
 import torch.utils.data
 
-from src.preprocess import prepare_data, prepare_data_bench, prepare_data_relatorio
+from src.preprocess import prepare_data_bench, prepare_data_relatorio
+from src.right_preprocess import prepare_data
 
 
 class Dataset(torch.utils.data.Dataset):
@@ -55,13 +56,10 @@ class CERDataset(torch.utils.data.Dataset):
         self,
         window,
         horizons,
-        complexo_eolico="Icarai",
         central_eolica="Icarai_I",
-        time_step="30_min",
-        mes="dec",
-        data_dir="./data/cer/",
-        decomp=True,
-        decomp_method="fft",
+        time_step="Horario",
+        mes="Dez",
+        data_dir="./data/",
         type="train",
     ):
 
@@ -70,17 +68,18 @@ class CERDataset(torch.utils.data.Dataset):
         self.horizon_i = 0
         self.data_dir = data_dir
         self.type = type
-        self.decomp_method = decomp_method
         self.time_step = time_step
 
-        central_dir = central_eolica + "_SCADA_" + time_step
-        file_path = os.path.join(data_dir, complexo_eolico, central_dir)
-        data_name = central_dir + "_" + "OP" + mes.title()
-        train_name = data_name + "_Cal.csv"
-        test_name = data_name + "_Op.csv"
+        file_path = data_dir
+        file_path += "Potencia_"
+        file_path += central_eolica + "_"
+        file_path += "SCADA_"
+        file_path += time_step + "_"
+        file_path += "TYPE" + "_"
+        file_path += mes + ".csv"
 
-        train_name = os.path.join(file_path, train_name)
-        test_name = os.path.join(file_path, test_name)
+        train_name = file_path.replace("TYPE", "CAL")
+        test_name = file_path.replace("TYPE", "OP")
 
         train_data = pd.read_csv(train_name)
         test_data = pd.read_csv(test_name)
@@ -88,15 +87,8 @@ class CERDataset(torch.utils.data.Dataset):
         self.df_train = train_data.dropna()
         self.df_test = test_data.dropna()
 
-        if time_step == "30_min":
-            self.df_train = self.df_train.tail(2928)
-
-        train_data = self.df_train["PotTotal"].values
-        test_data = self.df_test["PotTotal"].values
-
-        if time_step == "1_day":
-            plus = train_data[-15:]
-            test_data = np.concatenate((plus, test_data))
+        train_data = self.df_train.values[:, 1]
+        test_data = self.df_test.values[:, 1]
 
         (
             X_train,
@@ -105,14 +97,11 @@ class CERDataset(torch.utils.data.Dataset):
             y_test,
             train_scaler,
             test_scaler,
-        ) = prepare_data_relatorio(
+        ) = prepare_data(
             train_data,
             test_data,
-            decomp,
-            data_name,
             window,
             horizons,
-            decomp_method,
             sampling=1 / 50,
         )
 
